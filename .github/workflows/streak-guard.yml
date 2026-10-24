@@ -1,0 +1,35 @@
+# Страховка серии: если до вечера в репозитории не появилось ни одного коммита,
+# делает простой коммит сам, чтобы в графике GitHub не было пустого дня.
+name: Страховка серии коммитов
+
+on:
+  schedule:
+    - cron: "0 17 * * *" # 22:00 по Екатеринбургу (17:00 UTC)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Yekaterinburg
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Коммит, если сегодня ещё ничего не было
+        run: |
+          today=$(date +%F)
+          last=$(git log -1 --format=%ad --date=format-local:%F)
+          if [ "$last" = "$today" ]; then
+            echo "Сегодня уже был коммит ($last), ничего не делаю."
+            exit 0
+          fi
+          echo "$today: новой задачи сегодня не было, коммит страховки" >> streak.log
+          # Почта автора привязана к аккаунту, поэтому коммит засчитывается в график
+          git config user.name "Nanitka777"
+          git config user.email "khachapury171208@gmail.com"
+          git add streak.log
+          git commit -m "Страховка серии: $today"
+          git push
